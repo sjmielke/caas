@@ -13,13 +13,66 @@ yesWithPercent tup prob = (mod (myRandom tup) 100) <= edge
     where edge = floor $ 100.0 * prob
 
 pickColor :: Int -> (Int, Int, Int)
-pickColor n = case (if n<0 then 0 else if n>4 then 4 else n) of
-                0 -> (64, 160, 84)
-                1 -> (71, 193, 97)
-                2 -> (53, 196, 64)
-                3 -> (36, 199, 49)
-                4 -> (0, 204, 0)
-                _ -> (255, 0, 0)
+pickColor n = colorList7a !! (n+8) -- apparently this function gets values from -3 to 6 (10 colors). Fuck my former self writing horrifyingly hacked code. Wait, why am I saying former.
+
+colorList7a, colorList7b, colorList7c :: [(Int, Int, Int)]
+colorList7a = replicate 5 (255,0,0) ++ [
+    (49 , 33 , 66 ),
+    (49 , 33 , 66 ), -- duplicate, we don't need that much diversity on the borders. That sounds wrong.
+    (62 , 42 , 83 ),
+    (74 , 50 , 100),
+    (87 , 59 , 117), -- this is the one.
+    (100, 68 , 134),
+    (112, 76 , 151),
+    (125, 85 , 168),
+    (125, 85 , 168), -- duplicate, same reason.
+    (125, 85 , 168)] -- and another, because we need 10 colors.
+
+colorList7b = replicate 5 (255,0,0) ++ [
+    (49 , 33 , 66 ),
+    (62 , 42 , 83 ),
+    (74 , 50 , 100),
+    (87 , 59 , 117), -- this is the one.
+    (100, 68 , 134),
+    (112, 76 , 151),
+    (125, 85 , 168),
+    (125, 85 , 168), -- duplicate, same reason.
+    (125, 85 , 168), -- ...
+    (125, 85 , 168)] -- and another, because we need 10 colors.
+
+colorList7c = [ -- remember to set /1 to /2 in intensityScalar
+    (49 , 33 , 66 ),
+    (49 , 33 , 66 ),
+    (49 , 33 , 66 ),
+    (49 , 33 , 66 ),
+    (62 , 42 , 83 ),
+    (74 , 50 , 100),
+    (87 , 59 , 117), -- this is the one.
+    (100, 68 , 134),
+    (112, 76 , 151),
+    (125, 85 , 168),
+    (125, 85 , 168),
+    (125, 85 , 168),
+    (125, 85 , 168),
+    (125, 85 , 168)]
+
+{-
+   shade 0 = #573B75 = rgb( 87, 59,117) = rgba( 87, 59,117,1) = rgb0(0.341,0.231,0.459)
+   shade 1 = #9683AA = rgb(150,131,170) = rgba(150,131,170,1) = rgb0(0.588,0.514,0.667)
+   shade 2 = #725A8D = rgb(114, 90,141) = rgba(114, 90,141,1) = rgb0(0.447,0.353,0.553)
+   shade 3 = #422661 = rgb( 66, 38, 97) = rgba( 66, 38, 97,1) = rgb0(0.259,0.149,0.38)
+   shade 4 = #2C1247 = rgb( 44, 18, 71) = rgba( 44, 18, 71,1) = rgb0(0.173,0.071,0.278)
+-}
+
+{-
+ #312142
+ #3e2a53
+ #4a3264
+ #573b75
+ #644486
+ #704c97
+ #7d55a8
+-}
 
 weightedRandomNumber :: (Int, Int, Float) -> Int
 weightedRandomNumber (x, y, scalar) = round (4.0 - 5.0 * scalar) + -- 5.0 may not make sense mathematically, but in this world looks are all that counts
@@ -35,7 +88,7 @@ niceGradient :: (Int, Int) -> (Int, Int, Int)
 niceGradient tup = (\x -> (x,x,x)) $ 255 - (floor (255.0 * ((\(_,_,x) -> x) $ intensityScalar tup)))
 
 intensityScalar :: (Int, Int) -> (Int, Int, Float)
-intensityScalar (x, y) = (x, y, (fromIntegral $ pytha x y) / (fromIntegral $ pytha 0 0))
+intensityScalar (x, y) = (x, y, (fromIntegral $ pytha x y) / ((/1) . fromIntegral $ pytha 0 0))
     where
         pytha p q = rsq $ (diff p gx) + (diff q gy)
         rsq = round . sqrt . fromIntegral
