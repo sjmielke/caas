@@ -1,30 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.List (genericLength)
-import System.Random
-import Text.Printf
-import Text.Read (readMaybe)
-import Debug.Trace
-import Control.Exception.Base (assert)
-import Control.Monad.State.Lazy
+import           Control.Exception.Base     (assert)
+import           Control.Monad.State.Lazy
+import           Data.List                  (genericLength)
+import           Debug.Trace
+import           System.Random
+import           Text.Printf
+import           Text.Read                  (readMaybe)
 
-import qualified Data.ByteString.Char8 as BS (pack, unpack)
+import qualified Data.ByteString.Char8      as BS (pack, unpack)
 import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
-import qualified Data.CaseInsensitive as CI (mk)
+import qualified Data.CaseInsensitive       as CI (mk)
 
-import Network.Wai.Handler.Warp (run)
-import Network.Wai (Application, responseLBS, Request(..))
-import Network.HTTP.Types (status200)
+import           Data.List                  (find)
+import           Network.HTTP.Types         (status200)
+import           Network.Wai                (Application, Request (..),
+                                             responseLBS)
+import           Network.Wai.Handler.Warp   (run)
 
 data Options = Options
-  { gx :: Int
-  , gy :: Int
-  , scale :: Int
-  , radius :: Float
+  { gx                 :: Int
+  , gy                 :: Int
+  , scale              :: Int
+  , radius             :: Float
   , quantizePythagoras :: Bool
-  , nColors :: Int
-  , randomness :: Float -- 1.0 can change values into all possible values! (still, this is only a random addition to the clean values!)
-  , invert :: Bool
+  , nColors            :: Int
+  , randomness         :: Float -- 1.0 can change values into all possible values! (still, this is only a random addition to the clean values!)
+  , invert             :: Bool
   } deriving Show
 
 defaultOptions = Options
@@ -88,18 +90,23 @@ svgPic opts = let rawpixels = [(x,y) | x <- [0..(gx opts - 1)], y <- [0..(gy opt
                   height = show $ scale opts * gy opts
               in printf "<?xml version=\"1.0\" standalone=\"no\"?><svg version=\"1.1\" baseProfile=\"full\" width=\"%s\" height=\"%s\" xmlns=\"http://www.w3.org/2000/svg\">%s</svg><!-- Generated with %s -->" width height (concat pixels) (show opts)
 
+
 app :: Application
 app req respond = respond $ responseLBS status200 [(CI.mk "Content-Type", "image/svg+xml")] (BSL.pack pic)
   where
     pic = svgPic $ foldl modify defaultOptions (queryString req)
-    modify opts ("gx",                 Just s) = case readMaybe $ BS.unpack s of Just i -> opts {gx                 = i}; Nothing -> opts
-    modify opts ("gy",                 Just s) = case readMaybe $ BS.unpack s of Just i -> opts {gy                 = i}; Nothing -> opts
-    modify opts ("scale",              Just s) = case readMaybe $ BS.unpack s of Just i -> opts {scale              = i}; Nothing -> opts
-    modify opts ("radius",             Just s) = case readMaybe $ BS.unpack s of Just i -> opts {radius             = i}; Nothing -> opts
-    modify opts ("quantizePythagoras", Just s) = case readMaybe $ BS.unpack s of Just i -> opts {quantizePythagoras = i}; Nothing -> opts
-    modify opts ("nColors",            Just s) = case readMaybe $ BS.unpack s of Just i -> opts {nColors            = i}; Nothing -> opts
-    modify opts ("randomness",         Just s) = case readMaybe $ BS.unpack s of Just i -> opts {randomness         = i}; Nothing -> opts
-    modify opts ("invert",             Just s) = case readMaybe $ BS.unpack s of Just i -> opts {invert             = i}; Nothing -> opts
-    modify opts _ = opts
+
+    modify opts (name, Just s) = maybe opts id $ (find ((name ==) . fst) l >>= (alter . snd))
+      where
+        alter lamb = lamb $ BS.unpack s
+        l =
+          [ ("gx"                , fmap (\i -> opts { gx                 = i }) . readMaybe)
+          , ("gy"                , fmap (\i -> opts { gy                 = i }) . readMaybe)
+          , ("scale"             , fmap (\i -> opts { radius             = i }) . readMaybe)
+          , ("quantizePythagoras", fmap (\i -> opts { quantizePythagoras = i }) . readMaybe)
+          , ( "nColors"          , fmap (\i -> opts { nColors            = i }) . readMaybe)
+          , ("randomness"        , fmap (\i -> opts { randomness         = i }) . readMaybe)
+          , ( "invert"           , fmap (\i -> opts { invert             = i }) . readMaybe)
+          ]
 
 main = run 62947 app
