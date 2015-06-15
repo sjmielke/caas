@@ -13,6 +13,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
 import qualified Data.CaseInsensitive       as CI (mk)
 
 import           Data.List                  (find)
+import           Data.Maybe
 import           Network.HTTP.Types         (status200)
 import           Network.Wai                (Application, Request (..),
                                              responseLBS)
@@ -50,7 +51,7 @@ genColors opts = map (niceGradient . (/maxval)) [0..maxval]
   where maxval = fromIntegral $ nColors opts - 1
 
 pickColor :: Options -> Float -> (Int, Int, Int)
-pickColor opts = 
+pickColor opts =
   if fNColors > 0
     then (genColors opts !!)
       . round
@@ -79,8 +80,8 @@ intensityScalar opts rndval (x, y) = inv $ min (max (result + randompart) 0) 1
 
 svgPixel :: Options -> (Int, Int) -> (Int, Int, Int) -> String
 svgPixel (Options { scale = scale }) (x,y) (r,g,b) =
-  printf 
-    "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" stroke=\"none\" stroke-width=\"0\" fill=\"#%02x%02x%02x\"/>" 
+  printf
+    "<rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" stroke=\"none\" stroke-width=\"0\" fill=\"#%02x%02x%02x\"/>"
     (scale*x - 1) (scale*y - 1) (scale + 2) (scale + 2) r g b
 
 evalPixel :: Options -> (Int, Int) -> State StdGen String
@@ -94,23 +95,37 @@ svgPic :: Options -> String
 svgPic opts@(Options { scale = scale
                      , gx    = gx
                      , gy    = gy
-                     }) = 
-  let 
+                     }) =
+  let
     rawpixels = [(x,y) | x <- [0..(gx - 1)], y <- [0..(gy - 1)]]
     pixels    = evalState (mapM (evalPixel opts) rawpixels) (mkStdGen 42)
     width     = show $ scale * gx
     height    = show $ scale * gy
-  in 
-    printf 
+  in
+    printf
       "<?xml version=\"1.0\" standalone=\"no\"?>\
       \<svg version=\"1.1\" baseProfile=\"full\" width=\"%s\" height=\"%s\" xmlns=\"http://www.w3.org/2000/svg\">\
       \%s\
-      \</svg><!-- Generated with %s -->" 
-      width 
-      height 
-      (concat pixels) 
+      \</svg><!-- Generated with %s -->"
+      width
+      height
+      (concat pixels)
       (show opts)
 
+
+parseOpts =
+  Options
+    <$> getVal "gx" 21
+    <*> getVal "gy" 30
+    <*> getVal "scale" 50
+    <*> getVal "radius" 1.0
+    <*> getVal "quantizePythagoras" True
+    <*> getVal "nColors" 15
+    <*> getVal "randomness" 0
+    <*> getVal "invert" True
+  where
+    getVal :: (Read a, Eq b) => b -> a -> [(b, Maybe String)] -> a
+    getVal name defaultVal qs = fromMaybe defaultVal $ join (lookup name qs) >>= readMaybe
 
 app :: Application
 app req respond = respond $ responseLBS status200 [(CI.mk "Content-Type", "image/svg+xml")] (BSL.pack pic)
