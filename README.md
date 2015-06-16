@@ -1,3 +1,3 @@
-# Greenmosaic, a LAAS (Logo As A Service)
+# MAAS - Mosaic As A Service
 
 Dynamically created SVG's via GET Requests.
