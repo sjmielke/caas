@@ -113,6 +113,7 @@ svgPic opts@(Options { scale = scale
       (show opts)
 
 
+parseOpts :: [(String, Maybe String)] -> Options
 parseOpts =
   Options
     <$> getVal "gx" 21
