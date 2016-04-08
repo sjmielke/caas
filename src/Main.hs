@@ -52,9 +52,10 @@ pickColor opts = if fNColors > 0
                  else niceGradient
   where fNColors = fromIntegral $ nColors opts
 
--- Since the base color is (87, 59, 117), f * (0.74359, 0.50427, 1) generates all colors.
+-- Since the base color is #ffc700 / (255, 199, 0), f * (1, 0.780392156863, 0) generates all colors.
+-- [In 2015 it was (87, 59, 117), f * (0.74359, 0.50427, 1)]
 niceGradient :: Float -> (Int, Int, Int)
-niceGradient f = (round $ 255 * f * 0.74359, round $ 255 * f * 0.50427, round $ 255 * f)
+niceGradient f = (round $ 255 * f * 1, round $ 255 * f * 0.780392156863, round $ 0 * f)
 
 -- | clamps to 1.0 maximum for radius < 1
 intensityScalar :: Options -> Float -> (Int, Int) -> Float
