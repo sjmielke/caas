@@ -30,9 +30,12 @@ data Options = Options
 defaultOptions = Options
   { numPoints = 1000
   , distRoot = 0.5
-  , lineSkips = [21, 34]
+  , lineSkips = [8, 9, 10]
   , size = 500
   }
+
+fiboNumbers :: [Int]
+fiboNumbers = 0 : 1 : zipWith (+) fiboNumbers (tail fiboNumbers)
 
 getFiboPoints :: Options -> [(Float, Float)]
 getFiboPoints opts
@@ -47,25 +50,27 @@ getFiboPoints opts
     angle = 2.0*pi - (2.0*pi / goldenRatio)
     goldenRatio = (1.0 + sqrt 5.0) / 2.0
 
-renderTri :: Options -> (Int, Int) -> (Color, Color, Color) -> String
-renderTri opts (x,y) ((r1,g1,b1), (r2,b2,g2), (r3,b3,g3)) = printf
-  ( "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" " ++
-    "stroke=\"none\" stroke-width=\"0\" " ++
-    "fill=\"#%02x%02x%02x\"/>" )
-  x y (10 :: Int) r1 g1 b1
-
 renderPoint :: Options -> (Int, Int) -> State StdGen String
-renderPoint opts p = do
+renderPoint opts (x, y) = do
     gen <- get
     let (rndval, newGen) = random gen :: (Float, StdGen)
     put newGen
-    return $ renderTri opts p ((255, round (180.0  - 25.0 + 50.0 * rndval), 0), (0,0,0), (0,0,0))
+    return $ printf
+        ( "<circle cx=\"%d\" cy=\"%d\" r=\"%d\" " ++
+          "stroke=\"none\" stroke-width=\"0\" " ++
+          "fill=\"#%02x%02x%02x\"/>" )
+        x y (10 :: Int)
+        (255 :: Int) (round $ 180.0  - 25.0 + 50.0 * rndval :: Int) (0 :: Int)
 
 renderLine :: ((Int, Int), (Int, Int)) -> String
-renderLine ((x1, y1), (x2, y2)) = printf "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke=\"black\" stroke-width=\"2\"/>" x1 y1 x2 y2
+renderLine ((x1, y1), (x2, y2))
+  = printf ( "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" " ++
+             "stroke=\"black\" stroke-width=\"2\"/>" )
+           x1 y1 x2 y2
 
 normalizePoints :: Options -> [(Float, Float)] -> [(Int, Int)]
-normalizePoints opts xs = map (\(x, y) -> (round $ norm x minx maxx, round $ norm y miny maxy)) xs
+normalizePoints opts xs
+  = map (\(x, y) -> (round $ norm x minx maxx, round $ norm y miny maxy)) xs
   where
     norm a mina maxa = (fromIntegral $ size opts) * (a - mina) / (maxa - mina)
     minx = minimum $ map fst xs
@@ -73,15 +78,27 @@ normalizePoints opts xs = map (\(x, y) -> (round $ norm x minx maxx, round $ nor
     miny = minimum $ map snd xs
     maxy = maximum $ map snd xs
 
+linesFor :: [(Int, Int)] -> Int -> String
+linesFor points skip
+  = concatMap renderLine
+  $ drop (fiboNumbers !! skip)
+  $ zip points (replicate (fiboNumbers !! skip) (350,350) ++ points)
+
 svgPic :: Options -> String
-svgPic opts = let points = normalizePoints opts $ take (numPoints opts) $ getFiboPoints opts
-                  linesFor skip = map renderLine $ drop skip $ zip (replicate skip (0,0) ++ points) points
-                  pixels = evalState (mapM (renderPoint opts) points) (mkStdGen 42)
-                  width = show $ size opts + 42
-                  height = show $ size opts + 42
-                  andprint s = unsafePerformIO (writeFile "/tmp/fibopoints" (concatMap cppprint points) >> return s)
-                  cppprint (x, y) = printf "points->InsertNextPoint(%f, %f, 0.0);\n" (fromIntegral x / fromIntegral (size opts) - 0.5 :: Float) (fromIntegral y / fromIntegral (size opts) - 0.5 :: Float)
-              in andprint $ printf "<?xml version=\"1.0\" standalone=\"no\"?><svg version=\"1.1\" baseProfile=\"full\" width=\"%s\" height=\"%s\" xmlns=\"http://www.w3.org/2000/svg\">%s</svg><!-- Generated with %s -->" width height (concat $ pixels ++ concatMap linesFor (lineSkips opts)) (show opts)
+svgPic opts
+  = let points = normalizePoints opts $ take (numPoints opts) $ getFiboPoints opts
+        pixels = concat $ evalState (mapM (renderPoint opts) points) (mkStdGen 42)
+        lines = concatMap (linesFor points) (lineSkips opts)
+        width = show $ size opts + 42
+        height = show $ size opts + 42
+    in printf ( "<?xml version=\"1.0\" standalone=\"no\"?>" ++
+                "<svg version=\"1.1\" baseProfile=\"full\" " ++
+                "width=\"%s\" height=\"%s\" " ++
+                "xmlns=\"http://www.w3.org/2000/svg\">%s</svg>" ++
+                "<!-- Generated with %s -->" )
+              width height
+              (pixels ++ lines)
+              (show opts)
 
 app :: Application
 app req respond = respond $ responseLBS status200 [(CI.mk "Content-Type", "image/svg+xml")] (BSL.pack pic)
